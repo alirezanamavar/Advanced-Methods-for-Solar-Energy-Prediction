@@ -61,6 +61,3 @@ This project focuses on the prediction and modeling of solar power generation us
 - **Machine Learning:** Neural network implementation.
 
 ---
-
-## 📁 Repository Structure  
-
