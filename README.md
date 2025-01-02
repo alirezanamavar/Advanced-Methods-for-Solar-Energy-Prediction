@@ -1,63 +1,134 @@
-Advanced-Methods-for-Solar-Energy-Prediction
-## 🌟 Overview  
-This project focuses on the prediction and modeling of solar power generation using a combination of theoretical models, regression techniques, neural networks, and genetic algorithms. The aim is to evaluate the accuracy and effectiveness of various methods in estimating solar energy output under different environmental conditions.
+# Solar Power Analysis and Prediction
 
----
+This project involves analyzing and predicting the power output of a solar energy system using various computational techniques. The approaches include theoretical calculations, linear regression, neural networks, and optimization using a genetic algorithm.
 
-## 🔍 Key Features  
-- **Data Processing:** Normalization of temperature, solar radiation, and rainfall data.  
-- **Theoretical Model:** Predict power output based on standard photovoltaic equations.  
-- **Regression Analysis:** Employ linear regression to model power output based on environmental parameters.  
-- **Neural Network:** Train a feedforward neural network for accurate solar power prediction.  
-- **Genetic Algorithm:** Optimize coefficients of a custom polynomial model using genetic programming.  
-- **Visualization:** Generate detailed comparison charts for all methods.
+## Project Description
+The goal is to estimate and compare the power output of a solar energy system through different methods and evaluate their accuracy against practical data. Key components of the analysis include:
 
----
+1. **Theoretical Modeling**: Calculating power output based on solar radiation and environmental factors.
+2. **Regression Analysis**: Employing linear regression to predict power output.
+3. **Neural Networks**: Utilizing a feedforward neural network for prediction.
+4. **Genetic Algorithm Optimization**: Tuning a model to minimize error using genetic algorithms.
 
-## 📊 Methodology  
+## Data
+The following data files are used in the project:
 
-1. **Data Sources:**  
-   - Solar radiation data (`Radiation1400New.mat`).  
-   - Hourly temperature data (`hourly_temperatures.mat`).  
-   - Hourly rainfall data (`hourly_Rain.mat`).  
-   - Practical power data (`Power.mat`).
+- `Power.mat`: Contains practical power output data.
+- `Radiation1400New.mat`: Solar radiation data.
+- `hourly_temperatures.mat`: Hourly temperature data.
+- `hourly_Rain.mat`: Hourly rainfall data.
 
-2. **Theoretical Power Estimation:**  
-   Calculate cell temperature, short-circuit current, and voltage to predict theoretical power output.
+## Requirements
 
-3. **Regression Model:**  
-   A linear regression model is trained to predict power output based on temperature, radiation, and rainfall.
+The project is implemented in MATLAB. Ensure you have the following:
 
-4. **Neural Network:**  
-   A feedforward neural network with 20 hidden neurons is trained for 2000 epochs using a backpropagation algorithm.
+- MATLAB installed with the Neural Network and Optimization Toolboxes.
+- The `.mat` files mentioned above.
 
-5. **Genetic Algorithm (GA):**  
-   A custom objective function is optimized using a GA to minimize mean squared error in the prediction.
+## Code Breakdown
 
-6. **Evaluation Metrics:**  
-   - Mean Squared Error (MSE) for performance comparison.  
-   - Visualization of daily mean power outputs for each method.
+### Loading Data
+```matlab
+load('Power.mat');
+load('Radiation1400New.mat');
+load('hourly_temperatures.mat');
+load('hourly_Rain.mat');
+```
+This section loads the necessary data files.
 
----
+### Theoretical Power Calculation
+```matlab
+Is = Radiation1400New * 1e-6;
+Ta = hourly_temperatures;
+N = 22032;
+T_noct = 20.5;
+I_sc = 9.18;
+v_oc = 45.1;
+I_mp = 8.61;
+V_mp = 36.6;
+ki = 0.05;
+kv = -0.14;
+FF = (V_mp * I_mp) / (v_oc * I_sc);
 
-## 🚀 Results  
+Tc = Ta + Is .* ((T_noct - 20) / 0.8);
+I = Is .* (I_sc + ki .* (Tc - 25));
+v = v_oc - kv .* Tc;
+P = N * FF .* v .* I * 1e-3;
+P(P < 0) = 0; % Remove negative values
+```
+This section computes theoretical power output based on environmental parameters.
 
-- **Error Comparison:**  
-  A bar chart compares the Mean Squared Error (MSE) for each method:
-  - **Theoretical**
-  - **Regression**
-  - **Neural Network**
-  - **Genetic Algorithm**
+### Data Preparation
+```matlab
+X = zeros(8760, 4);
+X(:, 1) = normalize(hourly_temperatures, 'range');
+X(:, 2) = normalize(Radiation1400New, 'range');
+X(:, 3) = normalize(hourlyRain, 'range');
+X(:, 4) = reshape(Power1400, [], 1);
+```
+Data is normalized and organized into a matrix for analysis.
 
-- **Daily Power Output:**  
-  Multiple line plots visualize the mean daily power predicted by each method against practical data.
+### Linear Regression
+```matlab
+mdl = fitlm(inputs, targets);
+coeffs = mdl.Coefficients.Estimate;
+Preg = [ones(size(inputs, 1), 1), inputs] * coeffs;
+PPregerr = mean((Preg - reshape(Power1400, 24, [])).^2, 'all');
+```
+Regression is performed to estimate power output and compute error.
 
----
+### Neural Network
+```matlab
+hiddenLayerSize = 20;
+net = fitnet(hiddenLayerSize);
+net.trainParam.epochs = 2000;
+net.trainParam.goal = 1e-6;
+[net, tr] = train(net, inputs', targets');
+outputs = net(inputs');
+PPNNerr = mean((reshape(outputs', 24, []) - reshape(Power1400, 24, [])).^2, 'all');
+```
+A feedforward neural network is trained to predict power output.
 
-## 🛠️ Technologies Used  
+### Genetic Algorithm
+```matlab
+objective = @(a) mean((targets - (a(1) + a(2)*inputs(:,1) + a(3)*inputs(:,2) + a(4)*inputs(:,3) + a(5)*inputs(:,1).*inputs(:,2) + a(6)*inputs(:,2).*inputs(:,3) + a(7)*inputs(:,1).^2)).^2);
+optionsGA = optimoptions('ga', 'MaxGenerations', 500, 'PopulationSize', 200, 'FunctionTolerance', 1e-8);
+[bestCoeffsGA, errorGA] = ga(objective, 7, [], [], [], [], [-20, -20, -20, -20, -20, -20, -20], [20, 20, 20, 20, 20, 20, 20], [], optionsGA);
+PPGAerr = mean((reshape(PPGA, 24, []) - reshape(Power1400, 24, [])).^2, 'all');
+```
+Genetic algorithms are used to minimize prediction error by optimizing model coefficients.
 
-- **MATLAB:** For data processing, modeling, and visualization.  
-- **Genetic Algorithm Toolbox:** For coefficient optimization.  
-- **Machine Learning:** Neural network implementation.
+### Visualization
+#### Error Comparison
+```matlab
+bars = [PPerr, PPregerr, PPNNerr, errorGA];
+bar(categorical({'Theoretical', 'Regression', 'Neural Network', 'Genetic Algorithm'}), bars);
+title('Error Comparison between Methods');
+```
 
----
+#### Power Comparison
+```matlab
+plot(mean(PP, 1), 'r', 'LineWidth', 1.5, 'DisplayName', 'Theoretical');
+plot(mean(PPreg, 1), 'b', 'LineWidth', 1.5, 'DisplayName', 'Regression');
+plot(mean(PPNN, 1), 'g', 'LineWidth', 1.5, 'DisplayName', 'Neural Network');
+plot(mean(PPGA, 1), 'k', 'LineWidth', 1.5, 'DisplayName', 'Genetic Algorithm');
+plot(mean(reshape(Power1400, 24, []), 1), 'm', 'LineWidth', 1.5, 'DisplayName', 'Practical');
+```
+
+## Results
+The project evaluates and compares the following methods based on mean squared error:
+
+- **Theoretical**: Prediction based on environmental factors.
+- **Regression**: Linear regression analysis.
+- **Neural Network**: Feedforward neural network.
+- **Genetic Algorithm**: Coefficient optimization.
+
+## Figures
+The following visualizations are generated:
+
+1. Error comparison for all methods.
+2. Daily mean power comparison.
+3. Individual power predictions for each method.
+
+## Conclusion
+This project demonstrates the application of various computational techniques to predict solar power output. The error comparison helps identify the most accurate method for the given data and context.
